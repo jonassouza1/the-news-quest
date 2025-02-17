@@ -15,47 +15,87 @@ export default async function handler(
     return res.status(405).json({ error: "Método não permitido" });
   }
 
-  const { email, resource_id }: { email: string; resource_id: string } =
-    req.body;
+  const {
+    email,
+    resource_id,
+    utm_source,
+    utm_medium,
+    utm_campaign,
+    utm_channel,
+  }: {
+    email: string;
+    resource_id: string;
+    utm_source?: string;
+    utm_medium?: string;
+    utm_campaign?: string;
+    utm_channel?: string;
+  } = req.body;
 
   if (!email || !resource_id) {
     return res.status(400).json({ error: "Dados inválidos" });
   }
 
   try {
-    // Inserir usuário e retornar ID diretamente
+    await database.query("BEGIN"); // Inicia transação para evitar inconsistências
+
+    // Inserir usuário (evita concorrência)
     const userQuery = await database.query({
       text: `
         INSERT INTO users (email)
         VALUES ($1)
-        ON CONFLICT (email) DO UPDATE SET email = users.email
+        ON CONFLICT (email) DO NOTHING
         RETURNING id;
       `,
       values: [email],
     });
 
-    const userId = userQuery.rows[0].id;
+    let userId = userQuery.rows[0]?.id;
+    if (!userId) {
+      const userSelect = await database.query({
+        text: "SELECT id FROM users WHERE email = $1;",
+        values: [email],
+      });
+      userId = userSelect.rows[0].id;
+    }
 
-    // Inserir newsletter e retornar ID diretamente
-    const newsletterQuery = await database.query({
+    // Inserir newsletter edition
+    const editionQuery = await database.query({
       text: `
         INSERT INTO newsletters (edition_id)
         VALUES ($1)
-        ON CONFLICT (edition_id) DO UPDATE SET edition_id = newsletters.edition_id
+        ON CONFLICT (edition_id) DO NOTHING
         RETURNING id;
       `,
       values: [resource_id],
     });
 
-    const newsletterId = newsletterQuery.rows[0].id;
+    let newsletterId = editionQuery.rows[0]?.id;
+    if (!newsletterId) {
+      const editionSelect = await database.query({
+        text: "SELECT id FROM newsletters WHERE edition_id = $1;",
+        values: [resource_id],
+      });
+      newsletterId = editionSelect.rows[0].id;
+    }
 
     // Inserir leitura
     await database.query({
-      text: "INSERT INTO reads (user_id, newsletter_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-      values: [userId, newsletterId],
+      text: `
+        INSERT INTO reads (user_id, newsletter_id, utm_source, utm_medium, utm_campaign, utm_channel) 
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT DO NOTHING;
+      `,
+      values: [
+        userId,
+        newsletterId,
+        utm_source,
+        utm_medium,
+        utm_campaign,
+        utm_channel,
+      ],
     });
 
-    // Atualizar streaks de forma atômica
+    // Atualizar streaks
     const streakQuery = await database.query({
       text: `
         WITH last_streak AS (
@@ -78,10 +118,13 @@ export default async function handler(
 
     const newStreak = streakQuery.rows[0].streak_count;
 
+    await database.query("COMMIT"); // Confirma a transação
+
     return res
       .status(200)
       .json({ message: "Leitura registrada!", streak: newStreak });
   } catch (error) {
+    await database.query("ROLLBACK"); // Desfaz transação em caso de erro
     console.error("Erro no webhook:", error);
     return res.status(500).json({ error: "Erro interno" });
   }
