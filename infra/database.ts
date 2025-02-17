@@ -9,7 +9,7 @@ async function query(queryObject: any) {
     console.error(error);
     throw error;
   } finally {
-    await client.end();
+    await client?.end();
   }
 }
 async function getNewClient() {
