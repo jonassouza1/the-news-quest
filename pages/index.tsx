@@ -7,27 +7,8 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const checkUserExists = async () => {
-    try {
-      const res = await fetch(`/api/v1/user?email=${email}`, {
-        headers: { "Cache-Control": "no-cache" },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.found) {
-          return true;
-        }
-      }
-      return false;
-    } catch (error) {
-      console.error("Erro ao verificar usuário:", error);
-      return false;
-    }
-  };
-
   const handleSubscribe = async () => {
     if (!email || !/\S+@\S+\.\S+/.test(email)) {
-      // Validação de email simples
       setMessage("Por favor, insira um e-mail válido.");
       return;
     }
@@ -35,46 +16,29 @@ export default function Home() {
     setIsLoading(true);
     setMessage("Verificando email...");
 
-    // Verifica se o usuário já existe no banco
-    const userExists = await checkUserExists();
-    if (userExists) {
-      setMessage("Usuário encontrado. Redirecionando...");
-      router.push(`/profile?email=${email}`);
-      return;
-    }
-
-    setMessage("Usuário não encontrado. Cadastrando...");
-
     try {
-      // Envia a requisição para o sistema de newsletter
+      // Envia a requisição para o webhook que irá verificar e cadastrar o email
       const res = await fetch(
-        "https://backend.testeswaffle.org/webhooks/case/subscribe",
+        "https://the-news-quest.vercel.app/api/v1/webhook",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email }),
-        },
+        }
       );
 
       if (res.ok) {
-        setMessage("Cadastro enviado! Aguardando confirmação...");
-        let attempts = 5; // Tentativas limitadas para verificar novamente no banco
-        while (attempts > 0) {
-          await new Promise((resolve) => setTimeout(resolve, 2000)); // Espera entre tentativas
-          const userExistsAfterRegister = await checkUserExists();
-          if (userExistsAfterRegister) {
-            setMessage("Usuário cadastrado com sucesso. Redirecionando...");
-            router.push(`/profile?email=${email}`);
-            return;
-          }
-          attempts--;
+        const data = await res.json();
+        if (data.message) {
+          setMessage(data.message);
         }
-        setMessage(
-          "Não conseguimos processar seu cadastro. Tente novamente mais tarde.",
-        );
+        if (data.streak !== undefined) {
+          setMessage("Cadastro enviado! Aguardando confirmação...");
+          router.push(`/profile?email=${email}`);
+        }
       } else {
         setMessage(
-          "Erro ao cadastrar no sistema de newsletter. Tente novamente.",
+          "Erro ao cadastrar no sistema de newsletter. Tente novamente."
         );
       }
     } catch (error) {
