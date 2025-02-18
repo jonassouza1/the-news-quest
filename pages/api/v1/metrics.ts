@@ -3,7 +3,7 @@ import database from "infra/database";
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse,
+  res: NextApiResponse
 ): Promise<void> {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Método não permitido" });
@@ -17,9 +17,9 @@ export default async function handler(
       text: `
         SELECT COUNT(*)::INT AS total_reads 
         FROM reads 
-        WHERE ($1::DATE IS NULL OR read_at >= $1) 
-          AND ($2::DATE IS NULL OR read_at <= $2) 
-          AND ($3::UUID IS NULL OR newsletter_id = $3)
+        WHERE ($1::DATE IS NULL OR read_at >= CAST($1 AS DATE)) 
+          AND ($2::DATE IS NULL OR read_at <= CAST($2 AS DATE)) 
+          AND ($3::INTEGER IS NULL OR newsletter_id = $3)
       `,
       values: [startDate || null, endDate || null, newsletterId || null],
     });
