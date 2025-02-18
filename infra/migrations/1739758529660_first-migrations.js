@@ -5,6 +5,8 @@ exports.up = (pgm) => {
   pgm.createTable("users", {
     id: { type: "serial", primaryKey: true },
     email: { type: "text", notNull: true, unique: true },
+    name: { type: "text", notNull: false },
+    status: { type: "text", notNull: false },
     created_at: { type: "timestamp", default: pgm.func("CURRENT_TIMESTAMP") },
   });
 
