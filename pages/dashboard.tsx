@@ -31,7 +31,7 @@ export default function Dashboard() {
   useEffect(() => {
     setLoading(true);
     fetch(
-      `api/v1/metrics?startDate=${startDate}&endDate=${endDate}&newsletterId=${newsletterId}&streakStatus=${streakStatus}`
+      `api/v1/metrics?startDate=${startDate}&endDate=${endDate}&newsletterId=${newsletterId}&streakStatus=${streakStatus}`,
     )
       .then((res) => {
         if (!res.ok) throw new Error("Erro ao carregar métricas");

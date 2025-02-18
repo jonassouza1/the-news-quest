@@ -3,7 +3,7 @@ import database from "infra/database";
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse,
 ): Promise<void> {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Método não permitido" });
