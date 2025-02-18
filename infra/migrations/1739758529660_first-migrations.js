@@ -1,12 +1,5 @@
 /**
- * @type {import('node-pg-migrate').ColumnDefinitions | undefined}
- */
-exports.shorthands = undefined;
-
-/**
  * @param pgm {import('node-pg-migrate').MigrationBuilder}
- * @param run {() => void | undefined}
- * @returns {Promise<void> | void}
  */
 exports.up = (pgm) => {
   pgm.createTable("users", {
@@ -18,6 +11,10 @@ exports.up = (pgm) => {
   pgm.createTable("newsletters", {
     id: "id",
     edition_id: { type: "text", notNull: true, unique: true },
+    title: { type: "text", notNull: false },
+    content: { type: "text", notNull: false },
+    published_at: { type: "timestamp", notNull: false },
+    author: { type: "text", notNull: false },
     created_at: { type: "timestamp", default: pgm.func("CURRENT_TIMESTAMP") },
   });
 
@@ -53,8 +50,6 @@ exports.up = (pgm) => {
 
 /**
  * @param pgm {import('node-pg-migrate').MigrationBuilder}
- * @param run {() => void | undefined}
- * @returns {Promise<void> | void}
  */
 exports.down = (pgm) => {
   pgm.dropTable("streaks");
