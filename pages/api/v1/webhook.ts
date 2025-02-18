@@ -39,15 +39,22 @@ export default async function handler(
   }
 
   try {
+    // Fazendo a requisição para a API externa
     const postResponse = await axios.get<PostDetails>(
       `https://backend.testeswaffle.org/webhooks/case/publication/teste/post/${id}`,
     );
-    const postDetails = postResponse.data;
 
+    // Verificando o status da resposta da API externa
+    if (postResponse.status !== 200) {
+      return res.status(500).json({ error: "Falha ao obter dados do post." });
+    }
+
+    const postDetails = postResponse.data;
     if (!postDetails) {
       return res.status(404).json({ error: "Post não encontrado." });
     }
 
+    // Evitando leitura aos domingos
     const today = new Date();
     const dayOfWeek = today.getDay();
     if (dayOfWeek === 0) {
@@ -56,6 +63,7 @@ export default async function handler(
         .json({ message: "Leituras aos domingos não contam para o streak." });
     }
 
+    // Verificando se o usuário já fez leitura recentemente (última hora)
     const oneHourAgo = new Date(today);
     oneHourAgo.setHours(today.getHours() - 1);
 
@@ -75,7 +83,8 @@ export default async function handler(
       });
     }
 
-    const todayMidnight = new Date(today.setHours(0, 0, 0, 0)); // Zera a hora para verificar o dia
+    // Verificando se o usuário já fez leitura no dia de hoje
+    const todayMidnight = new Date(today.setHours(0, 0, 0, 0));
 
     const dailyReadQuery = await database.query({
       text: `
@@ -91,8 +100,10 @@ export default async function handler(
       return res.status(400).json({ error: "Você já fez uma leitura hoje." });
     }
 
+    // Iniciando transação no banco
     await database.query("BEGIN");
 
+    // Verificando ou inserindo o usuário no banco
     const userQuery = await database.query({
       text: `
         INSERT INTO users (email)
@@ -112,28 +123,31 @@ export default async function handler(
       userId = userSelect.rows[0].id;
     }
 
+    // Inserindo ou atualizando o registro da newsletter
+
     const editionQuery = await database.query({
       text: `
-        INSERT INTO newsletters (edition_id, post_data)
-        VALUES ($1, $2)
-        ON CONFLICT (edition_id) DO UPDATE
-        SET post_data = $2
-        RETURNING id;
-      `,
-      values: [id, JSON.stringify(postDetails)],
+    INSERT INTO newsletters (edition_id)
+    VALUES ($1)
+    ON CONFLICT (edition_id) DO NOTHING
+    RETURNING id;
+  `,
+      values: [id],
     });
 
-    const newsletterId = editionQuery.rows[0]?.id;
+    const newsletterIdInserted = editionQuery.rows[0]?.id;
 
+    // Inserindo o registro de leitura
     await database.query({
       text: `
-        INSERT INTO reads (user_id, newsletter_id)
-        VALUES ($1, $2)
-        ON CONFLICT DO NOTHING;
+        INSERT INTO reads (user_id, newsletter_id, read_at)
+        VALUES ($1, $2, NOW())
+        ON CONFLICT (user_id, newsletter_id) DO NOTHING;
       `,
-      values: [userId, newsletterId],
+      values: [userId, newsletterIdInserted],
     });
 
+    // Atualizando o streak de leitura
     const streakQuery = await database.query({
       text: `
         WITH last_streak AS (
@@ -155,6 +169,7 @@ export default async function handler(
 
     const newStreak = streakQuery.rows[0].streak_count;
 
+    // Finalizando a transação
     await database.query("COMMIT");
 
     return res.status(200).json({
@@ -163,6 +178,7 @@ export default async function handler(
       post: postDetails,
     });
   } catch (error) {
+    // Rollback da transação em caso de erro
     await database.query("ROLLBACK");
     console.error("Erro no webhook:", error);
     return res.status(500).json({ error: "Erro interno" });
