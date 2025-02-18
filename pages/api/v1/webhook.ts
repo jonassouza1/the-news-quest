@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import database from "infra/database";
 import axios from "axios";
+import { v5 as uuidv5 } from "uuid";
 
 type ResponseData = {
   message?: string;
@@ -10,7 +11,7 @@ type ResponseData = {
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<ResponseData>,
+  res: NextApiResponse<ResponseData>
 ) {
   if (req.method !== "GET") {
     return res
@@ -27,9 +28,12 @@ export default async function handler(
   }
 
   try {
-    // Obtendo os detalhes da publicação
+    // Convertendo o 'id' numérico para UUID
+    const postId = uuidv5(id as string, uuidv5.DNS); // UUIDv5 gerado a partir do 'id' numérico
+
+    // Obtendo os detalhes da publicação usando o UUID gerado
     const postResponse = await axios.get<{ success: boolean; data: any }>(
-      `https://backend.testeswaffle.org/webhooks/case/publication/teste/post/${id}`,
+      `https://backend.testeswaffle.org/webhooks/case/publication/teste/post/${postId}`
     );
 
     if (!postResponse.data?.success || !postResponse.data?.data) {
