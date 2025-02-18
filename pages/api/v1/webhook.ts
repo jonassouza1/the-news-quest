@@ -1,10 +1,23 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import database from "infra/database";
+import axios from "axios";
 
 type ResponseData = {
   message?: string;
   streak?: number;
   error?: string;
+  post?: PostDetails;
+};
+
+type PostDetails = {
+  id: string;
+  title: string;
+  content: string;
+  published_at: string;
+  author: {
+    name: string;
+    email: string;
+  };
 };
 
 export default async function handler(
@@ -17,7 +30,6 @@ export default async function handler(
       .json({ error: "Método não permitido. Apenas GET é permitido." });
   }
 
-  // Extrair as variáveis necessárias dos parâmetros da URL
   const { email, id } = req.query;
 
   if (!email || !id) {
@@ -27,7 +39,15 @@ export default async function handler(
   }
 
   try {
-    // Lógica do streak e verificação de domingos
+    const postResponse = await axios.get<PostDetails>(
+      `https://backend.testeswaffle.org/webhooks/case/publication/teste/post/${id}`,
+    );
+    const postDetails = postResponse.data;
+
+    if (!postDetails) {
+      return res.status(404).json({ error: "Post não encontrado." });
+    }
+
     const today = new Date();
     const dayOfWeek = today.getDay();
     if (dayOfWeek === 0) {
@@ -36,9 +56,43 @@ export default async function handler(
         .json({ message: "Leituras aos domingos não contam para o streak." });
     }
 
+    const oneHourAgo = new Date(today);
+    oneHourAgo.setHours(today.getHours() - 1);
+
+    const existingReadQuery = await database.query({
+      text: `
+        SELECT 1 FROM reads 
+        WHERE user_id = $1 
+        AND read_at > $2
+        LIMIT 1;
+      `,
+      values: [email, oneHourAgo.toISOString()],
+    });
+
+    if (existingReadQuery.rowCount > 0) {
+      return res.status(400).json({
+        error: "Você já fez uma leitura recentemente (dentro da última hora).",
+      });
+    }
+
+    const todayMidnight = new Date(today.setHours(0, 0, 0, 0)); // Zera a hora para verificar o dia
+
+    const dailyReadQuery = await database.query({
+      text: `
+        SELECT 1 FROM reads
+        WHERE user_id = $1
+        AND read_at >= $2
+        LIMIT 1;
+      `,
+      values: [email, todayMidnight.toISOString()],
+    });
+
+    if (dailyReadQuery.rowCount > 0) {
+      return res.status(400).json({ error: "Você já fez uma leitura hoje." });
+    }
+
     await database.query("BEGIN");
 
-    // Inserir ou obter usuário
     const userQuery = await database.query({
       text: `
         INSERT INTO users (email)
@@ -58,20 +112,19 @@ export default async function handler(
       userId = userSelect.rows[0].id;
     }
 
-    // Inserir ou verificar a edição da newsletter
     const editionQuery = await database.query({
       text: `
-        INSERT INTO newsletters (edition_id)
-        VALUES ($1)
-        ON CONFLICT (edition_id) DO NOTHING
+        INSERT INTO newsletters (edition_id, post_data)
+        VALUES ($1, $2)
+        ON CONFLICT (edition_id) DO UPDATE
+        SET post_data = $2
         RETURNING id;
       `,
-      values: [id],
+      values: [id, JSON.stringify(postDetails)],
     });
 
     const newsletterId = editionQuery.rows[0]?.id;
 
-    // Registrar a leitura do usuário
     await database.query({
       text: `
         INSERT INTO reads (user_id, newsletter_id)
@@ -81,7 +134,6 @@ export default async function handler(
       values: [userId, newsletterId],
     });
 
-    // Atualizar streak
     const streakQuery = await database.query({
       text: `
         WITH last_streak AS (
@@ -105,9 +157,11 @@ export default async function handler(
 
     await database.query("COMMIT");
 
-    return res
-      .status(200)
-      .json({ message: "Leitura registrada!", streak: newStreak });
+    return res.status(200).json({
+      message: "Leitura registrada!",
+      streak: newStreak,
+      post: postDetails,
+    });
   } catch (error) {
     await database.query("ROLLBACK");
     console.error("Erro no webhook:", error);
