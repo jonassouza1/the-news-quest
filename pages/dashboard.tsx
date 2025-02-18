@@ -31,7 +31,7 @@ export default function Dashboard() {
   useEffect(() => {
     setLoading(true);
     fetch(
-      `/api/v1/metrics?startDate=${startDate}&endDate=${endDate}&newsletterId=${newsletterId}&streakStatus=${streakStatus}`,
+      `api/v1/metrics?startDate=${startDate}&endDate=${endDate}&newsletterId=${newsletterId}&streakStatus=${streakStatus}`
     )
       .then((res) => {
         if (!res.ok) throw new Error("Erro ao carregar métricas");
@@ -107,7 +107,12 @@ export default function Dashboard() {
           {/* Gráfico de Engajamento */}
           <h2 className="text-xl font-bold mt-6">📊 Engajamento</h2>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={metrics.topReaders}>
+            <LineChart
+              data={metrics.topReaders.map((reader) => ({
+                email: reader.email,
+                streak: reader.streak,
+              }))}
+            >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="email"
