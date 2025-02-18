@@ -12,33 +12,36 @@ export default async function handler(
   res: NextApiResponse<ResponseData>,
 ) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Método não permitido" });
+    return res
+      .status(405)
+      .json({ error: "Método não permitido. Apenas POST é permitido." });
   }
 
+  // Extrair apenas as variáveis necessárias
   const {
+    data: { id: resource_id, publish_date },
     email,
-    resource_id,
-    utm_source,
-    utm_medium,
-    utm_campaign,
-    utm_channel,
-  }: {
-    email: string;
-    resource_id: string;
-    utm_source?: string;
-    utm_medium?: string;
-    utm_campaign?: string;
-    utm_channel?: string;
-  } = req.body;
+  }: { data: { id: string; publish_date: string }; email?: string } = req.body;
 
   if (!email || !resource_id) {
-    return res.status(400).json({ error: "Dados inválidos" });
+    return res
+      .status(400)
+      .json({ error: "Dados inválidos: 'email' ou 'resource_id' ausentes." });
   }
 
   try {
-    await database.query("BEGIN"); // Inicia transação para evitar inconsistências
+    // Lógica do streak e verificação de domingos
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    if (dayOfWeek === 0) {
+      return res
+        .status(200)
+        .json({ message: "Leituras aos domingos não contam para o streak." });
+    }
 
-    // Inserir usuário (evita concorrência)
+    await database.query("BEGIN");
+
+    // Inserir ou obter usuário
     const userQuery = await database.query({
       text: `
         INSERT INTO users (email)
@@ -58,44 +61,30 @@ export default async function handler(
       userId = userSelect.rows[0].id;
     }
 
-    // Inserir newsletter edition
+    // Inserir ou verificar a edição da newsletter
     const editionQuery = await database.query({
       text: `
-        INSERT INTO newsletters (edition_id)
-        VALUES ($1)
+        INSERT INTO newsletters (edition_id, publish_date)
+        VALUES ($1, $2)
         ON CONFLICT (edition_id) DO NOTHING
         RETURNING id;
       `,
-      values: [resource_id],
+      values: [resource_id, publish_date],
     });
 
-    let newsletterId = editionQuery.rows[0]?.id;
-    if (!newsletterId) {
-      const editionSelect = await database.query({
-        text: "SELECT id FROM newsletters WHERE edition_id = $1;",
-        values: [resource_id],
-      });
-      newsletterId = editionSelect.rows[0].id;
-    }
+    const newsletterId = editionQuery.rows[0]?.id;
 
-    // Inserir leitura
+    // Registrar a leitura do usuário
     await database.query({
       text: `
-        INSERT INTO reads (user_id, newsletter_id, utm_source, utm_medium, utm_campaign, utm_channel) 
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO reads (user_id, newsletter_id)
+        VALUES ($1, $2)
         ON CONFLICT DO NOTHING;
       `,
-      values: [
-        userId,
-        newsletterId,
-        utm_source,
-        utm_medium,
-        utm_campaign,
-        utm_channel,
-      ],
+      values: [userId, newsletterId],
     });
 
-    // Atualizar streaks
+    // Atualizar streak
     const streakQuery = await database.query({
       text: `
         WITH last_streak AS (
@@ -104,13 +93,12 @@ export default async function handler(
         INSERT INTO streaks (user_id, streak_count, last_read_at)
         VALUES ($1, 1, NOW())
         ON CONFLICT (user_id) DO UPDATE
-        SET 
-          streak_count = CASE 
-            WHEN (SELECT last_read_at FROM last_streak) IS NULL THEN 1
-            WHEN (DATE(NOW()) - DATE((SELECT last_read_at FROM last_streak))) = 1 THEN (SELECT streak_count FROM last_streak) + 1
-            ELSE 1
-          END,
-          last_read_at = NOW()
+        SET streak_count = CASE
+          WHEN (SELECT last_read_at FROM last_streak) IS NULL THEN 1
+          WHEN (DATE(NOW()) - DATE((SELECT last_read_at FROM last_streak))) = 1 THEN (SELECT streak_count FROM last_streak) + 1
+          ELSE 1
+        END,
+        last_read_at = NOW()
         RETURNING streak_count;
       `,
       values: [userId],
@@ -118,13 +106,13 @@ export default async function handler(
 
     const newStreak = streakQuery.rows[0].streak_count;
 
-    await database.query("COMMIT"); // Confirma a transação
+    await database.query("COMMIT");
 
     return res
       .status(200)
       .json({ message: "Leitura registrada!", streak: newStreak });
   } catch (error) {
-    await database.query("ROLLBACK"); // Desfaz transação em caso de erro
+    await database.query("ROLLBACK");
     console.error("Erro no webhook:", error);
     return res.status(500).json({ error: "Erro interno" });
   }

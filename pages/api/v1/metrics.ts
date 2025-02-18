@@ -5,22 +5,26 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ): Promise<void> {
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Método não permitido" });
+  }
+
   try {
     const { startDate, endDate, newsletterId, streakStatus } = req.query;
 
-    // Total de leituras filtradas por data e newsletter
+    // **Total de leituras filtradas por data e newsletter**
     const totalReadsQuery = await database.query({
       text: `
-        SELECT COALESCE(COUNT(*), 0) AS total_reads 
+        SELECT COUNT(*)::INT AS total_reads 
         FROM reads 
         WHERE ($1::DATE IS NULL OR read_at >= $1) 
-        AND ($2::DATE IS NULL OR read_at <= $2) 
-        AND ($3::UUID IS NULL OR newsletter_id = $3)
+          AND ($2::DATE IS NULL OR read_at <= $2) 
+          AND ($3::UUID IS NULL OR newsletter_id = $3)
       `,
       values: [startDate || null, endDate || null, newsletterId || null],
     });
 
-    // Ranking dos leitores mais engajados
+    // **Ranking dos leitores mais engajados**
     const topReadersQuery = await database.query({
       text: `
         SELECT users.email, COALESCE(streaks.streak_count, 0) AS streak 
@@ -37,18 +41,16 @@ export default async function handler(
       values: [streakStatus || null],
     });
 
-    // Garantindo que o total de leituras é um número
-    const totalReads = Number(totalReadsQuery.rows[0]?.total_reads) || 0;
+    // **Garantindo que os valores são retornados corretamente**
+    const totalReads = totalReadsQuery.rows[0]?.total_reads || 0;
+    const topReaders = topReadersQuery.rows.map((row: any) => ({
+      email: row.email,
+      streak: row.streak,
+    }));
 
-    res.status(200).json({
-      totalReads,
-      topReaders: topReadersQuery.rows.map((row: any) => ({
-        email: row.email,
-        streak: row.streak,
-      })),
-    });
+    return res.status(200).json({ totalReads, topReaders });
   } catch (error) {
     console.error("Erro ao carregar métricas:", error);
-    res.status(500).json({ error: "Erro ao carregar métricas" });
+    return res.status(500).json({ error: "Erro ao carregar métricas" });
   }
 }

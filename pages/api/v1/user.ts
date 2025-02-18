@@ -11,7 +11,8 @@ export default async function handler(
 
   const email = req.query.email as string;
 
-  if (!email || !email.includes("@")) {
+  const emailRegex = /^[\w-]+(\.[\w-]+)*@([\w-]+\.)+[a-zA-Z]{2,7}$/;
+  if (!email || !emailRegex.test(email)) {
     return res.status(400).json({ error: "Email inválido" });
   }
 
@@ -27,20 +28,22 @@ export default async function handler(
     });
 
     if (userQuery.rowCount === 0) {
-      // Caso o email não seja encontrado, retorna um status 404 (não encontrado)
-      return res.status(404).json({ exists: false });
+      return res.status(404).json({ found: false });
     }
 
     const { streak_count, last_read_at } = userQuery.rows[0];
 
-    // Caso o usuário seja encontrado, retorna as informações do streak
     return res.status(200).json({
-      exists: true,
+      found: true,
       streak: streak_count ?? 0,
-      lastRead: last_read_at || "Nenhuma leitura registrada",
+      lastRead: last_read_at
+        ? new Date(last_read_at).toLocaleString()
+        : "Nenhuma leitura registrada",
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erro ao buscar usuário:", error);
-    return res.status(500).json({ error: "Erro interno no servidor" });
+    return res
+      .status(500)
+      .json({ error: "Erro interno no servidor", details: error.message });
   }
 }

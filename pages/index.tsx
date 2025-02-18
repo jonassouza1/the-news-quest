@@ -14,7 +14,7 @@ export default function Home() {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.exists) {
+        if (data.found) {
           return true;
         }
       }
@@ -26,7 +26,8 @@ export default function Home() {
   };
 
   const handleSubscribe = async () => {
-    if (!email) {
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      // Validação de email simples
       setMessage("Por favor, insira um e-mail válido.");
       return;
     }
