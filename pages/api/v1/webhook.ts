@@ -10,8 +10,9 @@ type ResponseData = {
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<ResponseData>,
+  res: NextApiResponse<ResponseData>
 ) {
+  // Lidar com requisição GET (para interações de usuários)
   if (req.method === "GET") {
     const { email, id } = req.query;
 
@@ -21,14 +22,10 @@ export default async function handler(
         .json({ error: "Dados inválidos: 'email' ou 'id' ausentes." });
     }
 
-    if (typeof id !== "string" || !id.startsWith("post_")) {
-      return res.status(400).json({ error: "Formato de 'id' inválido." });
-    }
-
     try {
-      // Requisição para obter detalhes do post
+      // Requisição para a URL externa usando o id
       const postResponse = await axios.get<{ success: boolean; data: any }>(
-        `https://backend.testeswaffle.org/webhooks/case/publication/teste/post/${id}`,
+        `https://backend.testeswaffle.org/webhooks/case/publication/teste/post/post_${id}`
       );
 
       if (!postResponse.data?.success || !postResponse.data?.data) {
@@ -36,6 +33,7 @@ export default async function handler(
       }
 
       const postDetails = postResponse.data.data;
+
       const extractedPost = {
         id: postDetails.id,
         title: postDetails.title,
@@ -67,17 +65,13 @@ export default async function handler(
         values: [email],
       });
 
-      let userId = userQuery.rows[0]?.id || null;
+      let userId = userQuery.rows[0]?.id;
       if (!userId) {
         const userSelect = await database.query({
           text: "SELECT id FROM users WHERE email = $1;",
           values: [email],
         });
-        userId = userSelect.rows[0]?.id;
-      }
-
-      if (!userId) {
-        throw new Error("Falha ao obter ID do usuário.");
+        userId = userSelect.rows[0].id;
       }
 
       // Inserir ou obter newsletter
@@ -107,11 +101,7 @@ export default async function handler(
           text: "SELECT id FROM newsletters WHERE edition_id = $1;",
           values: [id],
         });
-        newsletterId = newsletterSelect.rows[0]?.id;
-      }
-
-      if (!newsletterId) {
-        throw new Error("Falha ao obter ID da newsletter.");
+        newsletterId = newsletterSelect.rows[0].id;
       }
 
       // Verificar se o usuário já leu hoje
@@ -125,7 +115,7 @@ export default async function handler(
         values: [userId, todayMidnight.toISOString()],
       });
 
-      if (dailyReadQuery.rows.length > 0) {
+      if (dailyReadQuery.rowCount > 0) {
         return res.status(400).json({ error: "Você já fez uma leitura hoje." });
       }
 
@@ -161,6 +151,7 @@ export default async function handler(
 
       const newStreak = streakQuery.rows[0].streak_count;
 
+      // Commit da transação
       await database.query("COMMIT");
 
       return res.status(200).json({
@@ -174,5 +165,79 @@ export default async function handler(
     }
   }
 
+  interface SubscriptionResponse {
+    data: {
+      id: string;
+      email: string;
+      status: string;
+    };
+  }
+
+  interface UserDataResponse {
+    data: {
+      name: string;
+      status: string;
+    };
+  }
+
+  // Lidar com requisição POST (para cadastro do usuário)
+  if (req.method === "POST") {
+    const { email } = req.body;
+
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      return res.status(400).json({
+        error: "E-mail inválido. Por favor, insira um e-mail válido.",
+      });
+    }
+
+    try {
+      // Requisição para cadastrar o usuário, como o frontend faria
+      const platformUrl = `https://backend.testeswaffle.org/webhooks/case/subscribe`;
+      const response = await axios.post<SubscriptionResponse>(platformUrl, {
+        data: { email },
+      });
+
+      if (!response.data || !response.data.data) {
+        return res.status(404).json({ error: "Falha ao cadastrar o usuário." });
+      }
+
+      const subscriptionData = response.data;
+
+      // Usar o ID retornado para buscar mais informações
+      const userId = subscriptionData.data.id;
+
+      // Requisição para obter mais informações do usuário com o ID
+      const userDataUrl = `https://backend.testeswaffle.org/webhooks/case/publication/teste/post/post_${userId}`;
+      const userDataResponse = await axios.get<UserDataResponse>(userDataUrl);
+
+      if (!userDataResponse.data || !userDataResponse.data.data) {
+        return res
+          .status(404)
+          .json({ error: "Falha ao obter dados do usuário." });
+      }
+
+      const userData = userDataResponse.data.data;
+
+      // Salvar ou atualizar usuário no banco
+      await database.query({
+        text: `
+          INSERT INTO users (email, name, status)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (email) DO UPDATE
+          SET name = EXCLUDED.name, status = EXCLUDED.status;
+        `,
+        values: [email, userData.name, subscriptionData.data.status],
+      });
+
+      return res
+        .status(200)
+        .json({ message: "Usuário cadastrado com sucesso!" });
+    } catch (error) {
+      console.error("Erro ao cadastrar usuário:", error);
+      return res.status(500).json({ error: "Erro ao cadastrar o usuário." });
+    }
+  }
+
+  // Método não permitido
   return res.status(405).json({ error: "Método não permitido." });
 }
