@@ -11,22 +11,19 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ResponseData>,
 ) {
-  if (req.method !== "POST") {
+  if (req.method !== "GET") {
     return res
       .status(405)
-      .json({ error: "Método não permitido. Apenas POST é permitido." });
+      .json({ error: "Método não permitido. Apenas GET é permitido." });
   }
 
-  // Extrair apenas as variáveis necessárias
-  const {
-    data: { id: resource_id, publish_date },
-    email,
-  }: { data: { id: string; publish_date: string }; email?: string } = req.body;
+  // Extrair as variáveis necessárias dos parâmetros da URL
+  const { email, id } = req.query;
 
-  if (!email || !resource_id) {
+  if (!email || !id) {
     return res
       .status(400)
-      .json({ error: "Dados inválidos: 'email' ou 'resource_id' ausentes." });
+      .json({ error: "Dados inválidos: 'email' ou 'id' ausentes." });
   }
 
   try {
@@ -64,12 +61,12 @@ export default async function handler(
     // Inserir ou verificar a edição da newsletter
     const editionQuery = await database.query({
       text: `
-        INSERT INTO newsletters (edition_id, publish_date)
-        VALUES ($1, $2)
+        INSERT INTO newsletters (edition_id)
+        VALUES ($1)
         ON CONFLICT (edition_id) DO NOTHING
         RETURNING id;
       `,
-      values: [resource_id, publish_date],
+      values: [id],
     });
 
     const newsletterId = editionQuery.rows[0]?.id;
