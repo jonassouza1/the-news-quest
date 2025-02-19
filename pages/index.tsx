@@ -16,37 +16,35 @@ export default function Home() {
     setIsLoading(true);
     setMessage("Verificando email...");
 
-    try {
-      // Envia a requisição para o webhook que irá verificar e cadastrar o email
-      const res = await fetch(
-        "https://the-news-quest.vercel.app/api/v1/webhook",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
-        }
-      );
+    // try {
+    // Envia a requisição para o webhook que irá verificar e cadastrar o email
+    //  const res =
+    await fetch("https://the-news-quest.vercel.app/api/v1/webhook", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.message) {
-          setMessage(data.message);
-        }
-        if (data.streak !== undefined) {
-          setMessage("Cadastro enviado! Aguardando confirmação...");
-          router.push(`/profile?email=${email}`);
-        }
-      } else {
-        setMessage(
-          "Erro ao cadastrar no sistema de newsletter. Tente novamente."
-        );
-      }
-    } catch (error) {
-      console.error("Erro ao se inscrever:", error);
-      setMessage("Erro inesperado. Tente novamente.");
-    } finally {
-      setIsLoading(false);
-    }
+    //if (res.ok) {
+    // const data = await res.json();
+    //  if (data.message) {
+    //    setMessage(data.message);
+    //  }
+    // if (data.streak !== undefined) {
+    //  setMessage("Cadastro enviado! Aguardando confirmação...");
+    router.push(`/profile?email=${email}`);
+    // }
+    // } else {
+    //  setMessage(
+    //    "Erro ao cadastrar no sistema de newsletter. Tente novamente."
+    //  );
+    //}
+    // } catch (error) {
+    // console.error("Erro ao se inscrever:", error);
+    //   setMessage("Erro inesperado. Tente novamente.");
+    //  } finally {
+    // setIsLoading(false);
+    //}
   };
 
   return (
