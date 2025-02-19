@@ -174,15 +174,13 @@ export default async function handler(
   }
 
   interface UserDataResponse {
-    data: {
-      name: string;
-      status: string;
-    };
+    authors: string;
+    status: string;
   }
 
   // Lidar com requisição POST (para cadastro do usuário)
   if (req.method === "POST") {
-    const { email } = req.body;
+    const email = req.body.data.email.trim();
 
     if (!email || !/\S+@\S+\.\S+/.test(email)) {
       return res.status(400).json({
@@ -194,29 +192,30 @@ export default async function handler(
       // Requisição para cadastrar o usuário, como o frontend faria
       const platformUrl = `https://backend.testeswaffle.org/webhooks/case/subscribe`;
       const response = await axios.post<SubscriptionResponse>(platformUrl, {
-        data: { email },
+        email,
       });
 
       if (!response.data || !response.data.data) {
         return res.status(404).json({ error: "Falha ao cadastrar o usuário." });
       }
 
-      const subscriptionData = response.data;
+      const subscriptionData = await response.data.data;
 
       // Usar o ID retornado para buscar mais informações
-      const userId = subscriptionData.data.id;
+      const userId = subscriptionData.id;
+      console.log(userId);
 
       // Requisição para obter mais informações do usuário com o ID
-      const userDataUrl = `https://backend.testeswaffle.org/webhooks/case/publication/teste/post/post_${userId}`;
+      const userDataUrl = `https://backend.testeswaffle.org/webhooks/case/publication/teste/post/post_/${userId}`;
       const userDataResponse = await axios.get<UserDataResponse>(userDataUrl);
 
-      if (!userDataResponse.data || !userDataResponse.data.data) {
+      if (!userDataResponse.data) {
         return res
           .status(404)
           .json({ error: "Falha ao obter dados do usuário." });
       }
 
-      const userData = userDataResponse.data.data;
+      const userData = userDataResponse.data;
 
       // Salvar ou atualizar usuário no banco
       await database.query({
@@ -226,7 +225,7 @@ export default async function handler(
           ON CONFLICT (email) DO UPDATE
           SET name = EXCLUDED.name, status = EXCLUDED.status;
         `,
-        values: [email, userData.name, subscriptionData.data.status],
+        values: [email, userData.authors, subscriptionData.status],
       });
 
       return res
