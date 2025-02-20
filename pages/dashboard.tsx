@@ -8,6 +8,7 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from "recharts";
+import styles from "styles/dashboard.module.css";
 
 interface Metrics {
   totalReads: number;
@@ -31,7 +32,7 @@ export default function Dashboard() {
   useEffect(() => {
     setLoading(true);
     fetch(
-      `api/v1/metrics?startDate=${startDate}&endDate=${endDate}&newsletterId=${newsletterId}&streakStatus=${streakStatus}`,
+      `api/v1/metrics?startDate=${startDate}&endDate=${endDate}&newsletterId=${newsletterId}&streakStatus=${streakStatus}`
     )
       .then((res) => {
         if (!res.ok) throw new Error("Erro ao carregar métricas");
@@ -46,89 +47,88 @@ export default function Dashboard() {
   }, [startDate, endDate, newsletterId, streakStatus]);
 
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+    <section className={styles.section}>
+      <div className={styles.divContainer}>
+        <h1 className={styles.h1}>Dashboard</h1>
+        <br />
+        <br />
 
-      {loading && <p>Carregando...</p>}
-      {error && <p className="text-red-500">{error}</p>}
+        {loading && <p>Carregando...</p>}
+        {error && <p>{error}</p>}
 
-      {/* Filtros */}
-      <div className="mb-4 flex gap-2">
-        <input
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          className="border p-2"
-          placeholder="Data inicial"
-        />
-        <input
-          type="date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-          className="border p-2"
-          placeholder="Data final"
-        />
-        <input
-          type="text"
-          value={newsletterId}
-          onChange={(e) => setNewsletterId(e.target.value)}
-          className="border p-2"
-          placeholder="ID da Newsletter"
-        />
-        <select
-          value={streakStatus}
-          onChange={(e) => setStreakStatus(e.target.value)}
-          className="border p-2"
-        >
-          <option value="">Todos</option>
-          <option value="ativo">Ativos</option>
-          <option value="inativo">Inativos</option>
-        </select>
-      </div>
-
-      {/* Exibição das métricas */}
-      {metrics && !loading && !error && (
         <div>
-          <p className="text-lg">📖 Total de leituras: {metrics.totalReads}</p>
-
-          <h2 className="text-xl font-bold mt-4">🔥 Ranking dos Leitores</h2>
-          {metrics.topReaders.length > 0 ? (
-            <ul className="list-disc pl-4">
-              {metrics.topReaders.map((reader, index) => (
-                <li key={index}>
-                  {index + 1}. {reader.email} ({reader.streak} dias)
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>Nenhum leitor engajado ainda.</p>
-          )}
-
-          {/* Gráfico de Engajamento */}
-          <h2 className="text-xl font-bold mt-6">📊 Engajamento</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart
-              data={metrics.topReaders.map((reader) => ({
-                email: reader.email,
-                streak: reader.streak,
-              }))}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="email"
-                label={{
-                  value: "Leitores",
-                  offset: 0,
-                  position: "insideBottom",
-                }}
-              />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="streak" stroke="#8884d8" />
-            </LineChart>
-          </ResponsiveContainer>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            placeholder="Data inicial"
+          />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            placeholder="Data final"
+          />
+          <input
+            type="text"
+            value={newsletterId}
+            onChange={(e) => setNewsletterId(e.target.value)}
+            placeholder="ID da Newsletter"
+          />
+          <select
+            value={streakStatus}
+            onChange={(e) => setStreakStatus(e.target.value)}
+          >
+            <option value="">Todos</option>
+            <option value="ativo">Ativos</option>
+            <option value="inativo">Inativos</option>
+          </select>
         </div>
-      )}
-    </div>
+
+        {metrics && !loading && !error && (
+          <div>
+            <p>📖 Total de leituras: {metrics.totalReads}</p>
+            <br />
+
+            <h2 className={styles.h2}>🔥 Ranking dos Leitores</h2>
+            {metrics.topReaders.length > 0 ? (
+              <ul>
+                {metrics.topReaders.map((reader, index) => (
+                  <li key={index}>
+                    {index + 1}. {reader.email} ({reader.streak} dias)
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>Nenhum leitor engajado ainda.</p>
+            )}
+            <div></div>
+            <br />
+            <h2 className={styles.h2}>📊 Engajamento</h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart
+                data={metrics.topReaders.map((reader) => ({
+                  email: reader.email,
+                  streak: reader.streak,
+                }))}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="email"
+                  label={{
+                    value: "Leitores",
+                    offset: 0,
+                    position: "insideBottom",
+                  }}
+                />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="streak" stroke="#8884d8" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

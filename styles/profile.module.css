@@ -1,0 +1,15 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100vh;
+  color: #e8e6e3;
+  background-color: #181a1b;
+}
+.divProfile {
+  margin-top: 150px;
+}
+.h1 {
+  font-size: 35px;
+}

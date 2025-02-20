@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
+import styles from "styles/profile.module.css";
 
 interface UserData {
   streak: number;
@@ -68,21 +69,21 @@ export default function Profile() {
   };
 
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold">Meu Streak</h1>
-      {userData ? (
-        <div>
-          <p>Streak atual: {userData.streak} dias</p>
-          <p>Última leitura: {userData.lastRead}</p>
-          <div className="mt-4 p-4 bg-blue-100 rounded-md">
-            <p className="text-lg font-semibold">
-              {getMotivationalMessage(userData.streak)}
-            </p>
+    <section className={styles.section}>
+      <div className={styles.divProfile}>
+        <h1 className={styles.h1}>Meu Streak</h1>
+        {userData ? (
+          <div>
+            <p>Streak atual: {userData.streak} dias</p>
+            <p>Última leitura: {userData.lastRead}</p>
+            <div>
+              <p>{getMotivationalMessage(userData.streak)}</p>
+            </div>
           </div>
-        </div>
-      ) : (
-        <p>Carregando...</p>
-      )}
-    </div>
+        ) : (
+          <p>Carregando...</p>
+        )}
+      </div>
+    </section>
   );
 }

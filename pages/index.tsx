@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
+import styles from "styles/index.module.css";
 
 export default function Home() {
   const [email, setEmail] = useState("");
@@ -48,32 +49,33 @@ export default function Home() {
   };
 
   return (
-    <div className="p-8 max-w-md mx-auto bg-white shadow-lg rounded-lg">
-      <h1 className="text-3xl font-bold mb-4">Bem-vindo ao The News!</h1>
-      <p className="mb-4">Cadastre-se para acompanhar suas estatísticas:</p>
+    <main className={styles.main}>
+      <section className={styles.section}>
+        <h1 className={styles.h1}>Bem-vindo ao The News!</h1>
+        <p>Cadastre-se para acompanhar suas estatísticas:</p>
+        <input
+          type="email"
+          placeholder="Digite seu email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={isLoading}
+        />
+        <br /> <br />
+        <button
+          className={styles.btn}
+          onClick={handleSubscribe}
+          //className={` ${
+          // isLoading
+          //  ? " btntrue"
+          //  : "btnfalse"
+          // }`}
+          //disabled={isLoading}
+        >
+          {isLoading ? "Processando..." : "Cadastrar"}
+        </button>
+      </section>
 
-      <input
-        type="email"
-        placeholder="Digite seu email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="border p-2 rounded w-full mb-2"
-        disabled={isLoading}
-      />
-
-      <button
-        onClick={handleSubscribe}
-        className={`p-2 w-full text-white rounded ${
-          isLoading
-            ? "bg-gray-400 cursor-not-allowed"
-            : "bg-blue-500 hover:bg-blue-600"
-        }`}
-        disabled={isLoading}
-      >
-        {isLoading ? "Processando..." : "Cadastrar"}
-      </button>
-
-      {message && <p className="mt-4 text-sm text-gray-700">{message}</p>}
-    </div>
+      {message && <p>{message}</p>}
+    </main>
   );
 }
