@@ -20,7 +20,12 @@ export default function Home() {
     // try {
     // Envia a requisição para o webhook que irá verificar e cadastrar o email
     //  const res =
-    await fetch("https://the-news-quest.vercel.app/api/v1/webhook", {
+    const url =
+      process.env.NODE_ENV === "production"
+        ? "https://the-news-quest.vercel.app/api/v1/webhook"
+        : "http://localhost:3000/api/v1/webhook";
+
+    await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
