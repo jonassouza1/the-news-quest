@@ -23,20 +23,23 @@ npm  run test
 
 ## Aviso
 
-- **1** deve estar com o docker instalado e em execução.
+- **0** Link para site em produção na vercel "https://the-news-quest.vercel.app/"
+
+- **1** o docker deve estar instalado e em execução.
 
 - **2** para acessar dashboard no projeto, é só digitar "/ dashboard" no fim da url. Não criei um botão na página incial que encaminharia direto, para não ficar muito aberto o acesso, mas fiz assim para facilitar o acesso de vocês sem ter um botão para o usuario normal acessar com facilidade.
 
 # Relatório de Análise do Projeto
 
-## 1. Stacks
+## 0. Stacks
 
 ### Tecnologias Utilizadas:
 
 - **Frontend**: Next.js, React, CSS puro
 - **Backend**: Node.js com Next.js API Routes, Express
-- **Banco de Dados**: PostgreSQL
+- **Banco de Dados:produção**: PostgreSQL (Neon Serverless)
 - **Infraestrutura**: Docker para ambiente de desenvolvimento
+- **Hospedagem**: Vercel (Frontend e Backend)
 - **CI/CD**: GitHub Actions e Worker para execução de linting e testes automáticos
 - **Qualidade de Código**: ESLint e Prettier
 - **Requisições HTTP**: Axios no backend
@@ -51,7 +54,7 @@ npm  run test
 - **Inteligência Artificial (IA)**: Utilizei o chat GPT para me auxiliar na compreensão do desafio e na estruturação do código referente à solução.
 - **Conclusão**:O projeto ainda não está rodando 100%, possivelmente devido a questões relacionadas ao token. Além disso, tive dificuldade para compreender as regras, pois nunca havia desenvolvido um projeto desse tipo antes.
 
-## 2. Dados
+## 1. Dados
 
 ### Estrutura SQL
 
@@ -66,7 +69,7 @@ O banco foi modelado para suportar o histórico de leituras e streaks dos usuár
 
 Os webhooks são processados automaticamente para registrar novas leituras e atualizar os streaks dos usuários. O webhook realiza as seguintes operações:
 
-1. **Cadastro ou recuperação do usuário**:
+0. **Cadastro ou recuperação do usuário**:
 
    ```sql
    INSERT INTO users (email)
@@ -81,7 +84,7 @@ Se o usuário já existir, buscamos o ID com:
 SELECT id FROM users WHERE email = $1;
 ```
 
-2. **Registro da edição da newsletter**:
+1. **Registro da edição da newsletter**:
 
    ```sql
    INSERT INTO newsletters (edition_id, title, content, published_at, author)
@@ -94,7 +97,7 @@ SELECT id FROM users WHERE email = $1;
    RETURNING id;
    ```
 
-3. **Registro de leitura**:
+2. **Registro de leitura**:
 
    ```sql
    INSERT INTO reads (user_id, newsletter_id, read_at)
@@ -107,7 +110,7 @@ SELECT id FROM users WHERE email = $1;
    SELECT 1 FROM reads WHERE user_id = $1 AND read_at >= $2 LIMIT 1;
    ```
 
-4. **Atualização do streak**:
+3. **Atualização do streak**:
    ```sql
    INSERT INTO streaks (user_id, streak_count, last_read_at)
    VALUES ($1, 1, NOW())
@@ -129,7 +132,7 @@ O banco de dados foi estruturado de forma a suportar alto volume de leituras e c
 - **Particionamento futuro**: Se necessário, podemos dividir a tabela `reads` por mês para otimizar a performance.
 - **Docker**: Facilita a implantação e permite escalar a aplicação horizontalmente.
 
-## 3. Testes
+## 2. Testes
 
 ### Testes Realizados:
 
@@ -143,7 +146,7 @@ O banco de dados foi estruturado de forma a suportar alto volume de leituras e c
 - Testes e Ajustes: 1 dias
 - Documentação e ajustes finais: 3 dia
 
-## 4. Funcionalidades Implementadas
+## 3. Funcionalidades Implementadas
 
 ### **Área de Login para Leitores**
 
